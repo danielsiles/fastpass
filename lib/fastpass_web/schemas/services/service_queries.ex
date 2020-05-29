@@ -7,6 +7,7 @@ defmodule FastpassWeb.Schema.Services.ServiceQueries do
   object :service_queries do
     @desc "Get working services"
     field :working_services, list_of(:service) do
+      arg(:branch_id, :string)
       resolve(&Resolvers.ServiceResolver.working_services/3)
     end
 
@@ -15,10 +16,5 @@ defmodule FastpassWeb.Schema.Services.ServiceQueries do
       arg(:service_id, :string)
       resolve(&Resolvers.ServiceResolver.next_fastpass_period/3)
     end
-  end
-
-  object :fastpass_period do
-    field :minimum_arrival_time, :string
-    field :maximum_arrival_time, :string
   end
 end

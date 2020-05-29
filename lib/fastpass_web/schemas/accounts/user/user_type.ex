@@ -15,6 +15,9 @@ defmodule FastpassWeb.Schema.Accounts.UserType do
     field :establishment_owner, :establishment_owner
 
     field :tickets, list_of(:ticket |> non_null)
+    field :current_ticket, :ticket do
+      resolve &Resolvers.TicketResolver.current_ticket/3
+    end
     
     field :inserted_at, :naive_datetime
     field :updated_at, :naive_datetime

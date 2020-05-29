@@ -4,6 +4,9 @@ defmodule FastpassWeb.Endpoint do
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
   # Set :encryption_salt if you would also like to encrypt it.
+
+  plug CORSPlug
+
   @session_options [
     store: :cookie,
     key: "_fastpass_key",
@@ -13,6 +16,8 @@ defmodule FastpassWeb.Endpoint do
   socket "/socket", FastpassWeb.UserSocket,
     websocket: true,
     longpoll: false
+
+  
 
   # Serve at "/" the static files from "priv/static" directory.
   #

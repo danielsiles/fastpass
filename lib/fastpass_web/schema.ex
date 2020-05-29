@@ -1,24 +1,33 @@
 defmodule FastpassWeb.Schema do
   use Absinthe.Schema
-  
+  import Ecto.Query, warn: false
+  alias Fastpass.Repo
+
   alias FastpassWeb.Schema.{
-    Accounts, Branches, Establishments,
-    Operations, Services, Tickets
+    Accounts,
+    Branches,
+    Establishments,
+    Operations,
+    Services,
+    Tickets
   }
-  
+
   import_types(Absinthe.Type.Custom)
   # Accounts
   import_types(Accounts.{
-    UserType, UserQueries, UserMutations,
-    SessionType, SessionMutations
+    UserType,
+    UserQueries,
+    UserMutations,
+    SessionType,
+    SessionMutations
   })
 
   import_types(Branches.{BranchTypes, BranchMutations, BranchQueries})
   import_types(Establishments.{EstablishmentTypes, EstablishmentMutations, EstablishmentQueries})
   import_types(Operations.{OperationTypes, OperationMutations})
   import_types(Services.{ServiceTypes, ServiceMutations, ServiceQueries})
-  import_types(Tickets.{TicketTypes, TicketMutations})
-  
+  import_types(Tickets.{TicketTypes, TicketMutations, TicketSubscriptions})
+
   query do
     import_fields(:user_queries)
     import_fields(:establishment_queries)
@@ -37,19 +46,6 @@ defmodule FastpassWeb.Schema do
   end
 
   subscription do
-    field :new_ticket, :ticket do
-      config fn _args, _info -> 
-        {:ok, topic: "*"}
-      end
-
-      trigger :create_ticket, topic: fn _ticket ->
-        "*"
-      end
-
-      resolve fn root, _, _ ->
-        IO.inspect root
-        {:ok, root}
-      end
-    end
+    import_fields(:ticket_subscriptions)
   end
-end 
+end

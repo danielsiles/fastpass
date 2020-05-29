@@ -2,6 +2,7 @@ defmodule FastpassWeb.Router do
   use FastpassWeb, :router
 
   pipeline :api do
+    plug CORSPlug, origin: ["http://localhost:8081"]
     plug :accepts, ["json"]
     plug FastpassWeb.Plugs.Context
   end

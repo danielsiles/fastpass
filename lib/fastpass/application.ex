@@ -15,7 +15,8 @@ defmodule Fastpass.Application do
       # Starts a worker by calling: Fastpass.Worker.start_link(arg)
       # {Fastpass.Worker, arg},
       {Absinthe.Subscription, [FastpassWeb.Endpoint]},
-      {Redix, name: :redix}
+      {Redix, name: :redix},
+      {Mutex, name: MyMutex, meta: nil}
     ]   
 
     # See https://hexdocs.pm/elixir/Supervisor.html

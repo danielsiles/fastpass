@@ -1,5 +1,6 @@
 defmodule FastpassWeb.Resolvers.ServiceResolver do
   alias Fastpass.Services
+  alias Fastpass.Branches
   # alias Fastpass.Establishments.Company
 
   def add_service(_, %{input: input}, %{context: %{current_user: user}}) do
@@ -10,12 +11,20 @@ defmodule FastpassWeb.Resolvers.ServiceResolver do
     Services.set_desk_service(user.id, input)
   end
 
-  def working_services(_, _, _) do
-    {:ok, Services.list_working_services}
+  def working_services(_, %{branch_id: branch_id}, _) do
+    {:ok, Services.list_working_services(branch_id)}
   end
 
   def next_fastpass_period(_, %{service_id: service_id}, _) do
     Services.next_fastpass_period(service_id)
+  end
+
+  def next_fastpass_period(service, _, _) do
+    Services.next_fastpass_period(service.id)
+  end
+
+  def branch(service, _, _) do
+    {:ok, Branches.get_branch!(service.branch_id)}
   end
   
 end

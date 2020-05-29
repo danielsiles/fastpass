@@ -14,7 +14,7 @@ defmodule Fastpass.Tickets.TicketAction do
   @foreign_key_type :binary_id
   schema "ticket_actions" do
     belongs_to(:ticket, Ticket)
-    belongs_to(:actor, User, source: :actor)
+    belongs_to(:actor, User, source: :actor, references: :id)
     field :status, TicketStatusEnum
     field :action, TicketActionTypeEnum
     # field :actor, :binary_id
@@ -22,7 +22,7 @@ defmodule Fastpass.Tickets.TicketAction do
     soft_delete_schema()
   end
 
-  @required_fields ~w(ticket_id status action actor)a
+  @required_fields ~w(ticket_id status action actor_id)a
   @optional_fields ~w()a
 
   @doc false

@@ -11,7 +11,6 @@ defmodule FastpassWeb.Schema.Tickets.TicketTypes do
 
     object :ticket do
       field :id, :id
-      field :service, :service
       field :user, :user
       field :is_fastpass, :boolean
       field :booking_from, :ticket_booking_from_enum
@@ -22,9 +21,21 @@ defmodule FastpassWeb.Schema.Tickets.TicketTypes do
       field :ticket_number, :string
       field :priority, :boolean
 
+      field :estimated_waiting_time, :integer do
+        resolve(&Resolvers.TicketResolver.estimated_waiting_time/3)
+      end
+
+      field :status, :ticket_action do
+        resolve &Resolvers.TicketResolver.status/3
+      end
+
       field :ticket_actions, list_of(:ticket_action |> non_null)
       field :ticket_transfers, list_of(:ticket_transfer |> non_null)
       field :booking, :booking
+      
+      field :service, :service |> non_null do 
+        resolve(&Resolvers.TicketResolver.service/3)
+      end
       
       field :inserted_at, :naive_datetime
       field :updated_at, :naive_datetime

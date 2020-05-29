@@ -52,7 +52,10 @@ defmodule Fastpass.MixProject do
       {:ecto_enum, "~> 1.4"},
       {:redix, ">= 0.0.0"},
       {:castore, ">= 0.0.0"},
-      {:timex, "~> 3.0"}
+      {:timex, "~> 3.0"},
+      {:cors_plug, "~> 2.0.2"},
+      {:mutex, "~> 1.1.0"},
+      {:sleeplocks, "~> 1.0"}
     ]
   end
 

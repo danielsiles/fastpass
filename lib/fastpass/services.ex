@@ -156,7 +156,7 @@ defmodule Fastpass.Services do
     end)
   end
 
-  def list_working_services do # fazer uma versao que da join com branches
+  def list_working_services(branch_id) do # fazer uma versao que da join com branches
     today = Date.utc_today
     week_day = Date.day_of_week(today) 
     time = Time.utc_now
@@ -166,6 +166,7 @@ defmodule Fastpass.Services do
     where: wt.week_day == ^week_day,
     where: wt.open_time < ^time,
     where: wt.close_time > ^time,
+    where: s.branch_id == ^branch_id,
     select: s
     Repo.all(query)
 end

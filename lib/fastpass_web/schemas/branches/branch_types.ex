@@ -9,13 +9,19 @@ defmodule FastpassWeb.Schema.Branches.BranchTypes do
       field :latitude, :string
       field :longitude, :string
       field :address, :string
+      field :neighborhood, :string
 
-      field :company, :company
+      field :company, :company do
+        resolve(&Resolvers.BranchResolver.company/3)
+      end
+
       field :working_time_group, :working_time_group
       field :statuses, list_of(:branch_status |> non_null) |> non_null
       field :desks, list_of(:desk |> non_null) |> non_null
       field :establishment_staffs, list_of(:establishment_staff |> non_null) |> non_null
-      field :services, list_of(:service |> non_null) |> non_null
+      field :services, list_of(:service |> non_null) |> non_null do
+        resolve(&Resolvers.BranchResolver.services/3)
+      end
       
       field :inserted_at, :naive_datetime
       field :updated_at, :naive_datetime

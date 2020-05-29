@@ -1,5 +1,5 @@
 defmodule FastpassWeb.Schema.Tickets.TicketMutations do
-use Absinthe.Schema.Notation
+  use Absinthe.Schema.Notation
 
   alias FastpassWeb.Resolvers
   alias FastpassWeb.Middlewares.Authorize
@@ -18,6 +18,27 @@ use Absinthe.Schema.Notation
       middleware(Authorize, :any)
       resolve(&Resolvers.TicketResolver.create_booking/3)
     end
+
+    @desc "Call next ticket in line"
+    field :call_next_ticket, :ticket do
+      arg(:desk_id, :string |> non_null)
+      middleware(Authorize, :any)
+      resolve(&Resolvers.TicketResolver.call_next_ticket/3)
+    end
+
+    @desc "Recall ticket"
+    field :recall_ticket, :ticket_action do
+      arg(:ticket_id, :string |> non_null)
+      middleware(Authorize, :any)
+      resolve(&Resolvers.TicketResolver.recall_ticket/3)
+    end
+
+    @desc "Cancel ticket"
+    field :cancel_ticket, :ticket_action do
+      arg(:ticket_id, :string |> non_null)
+      middleware(Authorize, :any)
+      resolve(&Resolvers.TicketResolver.cancel_ticket/3)
+    end
   end
 
   input_object :ticket_input do
@@ -25,7 +46,4 @@ use Absinthe.Schema.Notation
     field :booking_from, :ticket_booking_from_enum |> non_null
     field :priority, :boolean |> non_null
   end
-
-
-
 end

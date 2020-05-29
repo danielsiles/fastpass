@@ -40,6 +40,8 @@ defmodule Fastpass.Establishments do
   """
   def get_establishment_owner!(id), do: Repo.get!(EstablishmentOwner, id)
 
+  def get_company!(id), do: Repo.get!(Company, id)
+
   @doc """
   Creates a establishment_owner.
 
