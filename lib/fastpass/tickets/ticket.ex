@@ -13,6 +13,7 @@ defmodule Fastpass.Tickets.Ticket do
   }
 
   defenum BookingFromTypeEnum, ["web", "app", "host"]
+  defenum TicketStatusEnum, ["waiting", "done", "canceled", "no_show", "called", "recalled", "arrived"]
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -27,6 +28,7 @@ defmodule Fastpass.Tickets.Ticket do
     field :done_count, :integer
     field :ticket_number, :string
     field :priority, :boolean
+    field :status, TicketStatusEnum
 
     has_one :booking, Booking
     has_many :actions, TicketAction
@@ -36,7 +38,7 @@ defmodule Fastpass.Tickets.Ticket do
     soft_delete_schema()
   end
 
-  @required_fields ~w(service_id user_id  booking_from )a
+  @required_fields ~w(service_id user_id booking_from status)a
   @optional_fields ~w( waiting_time serving_time called_count done_count priority is_fastpass ticket_number)a
 
   @doc false

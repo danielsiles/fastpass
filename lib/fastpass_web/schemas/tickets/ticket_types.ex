@@ -25,13 +25,13 @@ defmodule FastpassWeb.Schema.Tickets.TicketTypes do
         resolve(&Resolvers.TicketResolver.estimated_waiting_time/3)
       end
 
-      field :status, :ticket_action do
-        resolve &Resolvers.TicketResolver.status/3
-      end
+      field :status, :string
 
       field :ticket_actions, list_of(:ticket_action |> non_null)
       field :ticket_transfers, list_of(:ticket_transfer |> non_null)
-      field :booking, :booking
+      field :booking, :booking do
+        resolve(&Resolvers.TicketResolver.booking/3)
+      end
       
       field :service, :service |> non_null do 
         resolve(&Resolvers.TicketResolver.service/3)
@@ -98,6 +98,7 @@ defmodule FastpassWeb.Schema.Tickets.TicketTypes do
       field :ticket, :ticket
       field :minimum_arrival_time, :naive_datetime
       field :maximum_arrival_time, :naive_datetime
+      field :check_in, :naive_datetime
 
       field :inserted_at, :naive_datetime
       field :updated_at, :naive_datetime

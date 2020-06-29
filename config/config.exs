@@ -41,3 +41,10 @@ config :fastpass, Fastpass.Guardian,
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{Mix.env()}.exs"
+
+# config :fastpass, Fastpass.Scheduler,
+#   jobs: [
+#     # Every minute
+#     {"* * * * *",      fn -> Fastpass.Tickets.clean_no_show_tickets end},
+#     {"* * * * *",      fn -> Fastpass.Tickets.clean_waiting_tickets end}
+#   ]

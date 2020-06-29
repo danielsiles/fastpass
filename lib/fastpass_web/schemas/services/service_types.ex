@@ -11,13 +11,17 @@ defmodule FastpassWeb.Schema.Services.ServiceTypes do
         resolve(&Resolvers.ServiceResolver.branch/3)
       end
       field :working_time_group, :working_time_group
-      field :status, list_of(:service_status |> non_null) |> non_null
+      field :status, :string
       field :desk_services, list_of(:desk_service |> non_null) |> non_null
 
       field :tickets, list_of(:ticket |> non_null)
 
       field :next_fast_pass_period, :fastpass_period  do
         resolve(&Resolvers.ServiceResolver.next_fastpass_period/3)
+      end
+
+      field :waiting_time, :integer  do
+        resolve(&Resolvers.ServiceResolver.waiting_time/3)
       end
 
       field :inserted_at, :naive_datetime

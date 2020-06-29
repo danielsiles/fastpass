@@ -16,8 +16,8 @@ defmodule Fastpass.Application do
       # {Fastpass.Worker, arg},
       {Absinthe.Subscription, [FastpassWeb.Endpoint]},
       {Redix, name: :redix},
-      {Mutex, name: MyMutex, meta: nil}
-    ]   
+      Fastpass.Scheduler
+    ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

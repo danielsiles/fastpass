@@ -17,6 +17,9 @@ defmodule FastpassWeb.ConnCase do
 
   use ExUnit.CaseTemplate
 
+  alias Fastpass.Accounts
+  alias FastpassWeb.Resolvers.SessionResolver
+
   using do
     quote do
       # Import conveniences for testing with connections
@@ -28,13 +31,41 @@ defmodule FastpassWeb.ConnCase do
     end
   end
 
+  def create_user(name) do
+    Accounts.create_user(%{
+      email: name <> "@test.com",
+      password: "123456",
+      first_name: "teste",
+      last_name: "teste",
+      phone_number: "21999765656",
+      cpf: "331515151515" <> name
+    })
+  end
+
+  def create_session(name) do
+    SessionResolver.login_user(%{}, %{input: %{
+      email: name <> "@test.com",
+      password: "123456"
+  }},%{})
+  end
+
   setup tags do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Fastpass.Repo)
 
     unless tags[:async] do
       Ecto.Adapters.SQL.Sandbox.mode(Fastpass.Repo, {:shared, self()})
     end
+    conn = Phoenix.ConnTest.build_conn()
+    if tags[:signed_in] do
+      # user = create_user(tags[:signed_in]) |> IO.inspect
+      {:ok, %{token: token, user: user}} = create_session(tags[:signed_in])
+      conn = Plug.Conn.put_req_header(conn,
+               "authorization", "Bearer " <> token)
 
-    {:ok, conn: Phoenix.ConnTest.build_conn()}
+      {:ok, conn: conn, current_user: user}
+    else
+      {:ok, conn: conn, current_user: nil}
+    end
+    # {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 end

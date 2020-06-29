@@ -11,12 +11,13 @@ defmodule Fastpass.Tickets.Booking do
     belongs_to(:ticket, Ticket)
     field :minimum_arrival_time, :naive_datetime
     field :maximum_arrival_time, :naive_datetime
+    field :check_in, :naive_datetime
     timestamps()
     soft_delete_schema()
   end
 
   @required_fields ~w(minimum_arrival_time maximum_arrival_time)a
-  @optional_fields ~w()a
+  @optional_fields ~w(check_in)a
 
   @doc false
   def changeset(booking, attrs) do

@@ -54,8 +54,8 @@ defmodule Fastpass.MixProject do
       {:castore, ">= 0.0.0"},
       {:timex, "~> 3.0"},
       {:cors_plug, "~> 2.0.2"},
-      {:mutex, "~> 1.1.0"},
-      {:sleeplocks, "~> 1.0"}
+      {:quantum, "~> 3.0-rc"},
+      {:dataloader, "~> 1.0.0"}
     ]
   end
 
@@ -69,7 +69,7 @@ defmodule Fastpass.MixProject do
     [
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate", "test"]
+      test: ["ecto.create --quiet", "ecto.migrate", "run test/test_seeds.exs", "test"]
     ]
   end
 end

@@ -10,10 +10,7 @@ defmodule Fastpass.Repo.Migrations.CreateTicketTransfers do
       add :id, :binary_id, primary_key: true
       add :old_service_id, references(:services, type: :uuid), null: false
       add :new_service_id, references(:services, type: :uuid), null: false
-      add :old_user_id, references(:users, type: :uuid), null: false
-      add :new_user_id, references(:users, type: :uuid), null: false
       add :ticket_id, references(:tickets, type: :uuid), null: false
-      add :type, TransferTypeEnum.type(), null: false
       timestamps()
       soft_delete_columns()
     end

@@ -2,6 +2,10 @@ defmodule Fastpass.Repo.Migrations.CreateBranches do
   use Ecto.Migration
   import Ecto.SoftDelete.Migration
 
+  import EctoEnum
+
+  defenum BranchStatusEnum, ["active", "inactive"]
+
   def change do
     create table(:branches, primary_key: false) do
       add :id, :binary_id, primary_key: true
@@ -17,6 +21,7 @@ defmodule Fastpass.Repo.Migrations.CreateBranches do
       add :number, :string, null: false
       add :complement, :string
       add :working_time_group_id, references(:working_time_groups, type: :uuid)
+      add :status, BranchStatusEnum.type(), null: false
       timestamps()
       soft_delete_columns()
     end

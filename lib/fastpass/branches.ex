@@ -4,6 +4,7 @@ defmodule Fastpass.Branches do
   """
   
   import Ecto.Query, warn: false
+  import Float
   alias Fastpass.Repo
 
   alias Fastpass.Branches
@@ -12,8 +13,9 @@ defmodule Fastpass.Branches do
     BranchStatus,
     Desk
   }
+  alias Fastpass.Services.Service
   alias Fastpass.Establishments
-  alias Fastpass.Establishments.Company
+  alias Fastpass.Establishments.{Company, EstablishmentStaff}
   alias Fastpass.Operations.{
     WorkingTimeGroup,
     WorkingTime
@@ -131,6 +133,19 @@ defmodule Fastpass.Branches do
     end
   end
 
+  def is_user_staff(user_id, branch_id, type \\ :branch) when type == :branch do
+    Repo.exists?(from es in EstablishmentStaff, where: es.user_id == ^user_id and es.branch_id == ^branch_id)
+  end
+
+  def is_user_staff(user_id, service_id, type) when type == :service do
+    query = from es in EstablishmentStaff,
+      join: b in Branch, on: b.id == es.branch_id,
+      join: s in Service, on: s.branch_id == b.id,
+      where: es.user_id == ^user_id,
+      where: s.id == ^service_id
+    Repo.exists?(query)
+  end
+
   def is_user_owner(user_id, desk_id, type) when type == :desk do
     q = "select TRUE from 
     desks as d, branches as b, companies as c, establishment_owners as eo 
@@ -162,11 +177,12 @@ defmodule Fastpass.Branches do
   end
 
   def add_branch(user_id, attrs \\ %{}) do
+    attrs = Map.put(attrs, :status, :active)
     case Establishments.is_user_owner(user_id, attrs.company_id) do
       true -> 
         %Branch{}
         |> Branch.changeset(attrs)
-        |> Ecto.Changeset.put_assoc(:statuses, [%BranchStatus{status: :active}])
+        |> Ecto.Changeset.put_assoc(:statuses, [%BranchStatus{status: "active"}])
         |> Repo.insert
       _ ->
         {:error, "You cannot add a branch to a company that you don't own"}  
@@ -186,6 +202,32 @@ defmodule Fastpass.Branches do
 
   def list_branches do
     Repo.all(Branch)
+  end
+
+  def list_branches(latitude, longitude) do
+    query = "SELECT *, id::text, company_id::text, distance(CAST(b.latitude as FLOAT), CAST(b.longitude as FLOAT), CAST($1 as FLOAT), CAST($2 as FLOAT)) as dist FROM branches as b WHERE distance(CAST(b.latitude as FLOAT), CAST(b.longitude as FLOAT), CAST($1 as FLOAT), CAST($2 as FLOAT)) < 20"
+
+    with (res <- Ecto.Adapters.SQL.query!(Repo, query, [latitude, longitude])) do
+      cols = Enum.map res.columns, &(String.to_atom(&1))
+      str = Enum.map res.rows, fn(row) -> struct(Branch, Enum.zip(cols, row)) end
+    else
+      _ -> false
+    end
+  end
+
+  def list_desks(branch) do
+    query = from d in Desk,
+    where: d.branch_id == ^branch.id,
+    select: d
+    Repo.all(query)
+  end
+
+  def datasource() do
+    Dataloader.Ecto.new(Repo, query: &query/2)
+  end
+
+  def query(queryable, _) do
+    queryable |> IO.inspect
   end
 
 end

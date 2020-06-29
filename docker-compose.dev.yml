@@ -1,0 +1,85 @@
+version: "2.2"
+services:
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:7.8.0
+  #   container_name: elasticsearch
+  #   environment:
+  #     - node.name=elasticsearch
+  #     - cluster.name=es-docker-cluster
+  #     - cluster.initial_master_nodes=elasticsearch
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #   volumes:
+  #     - data01:/usr/share/elasticsearch/data
+  #   ports:
+  #     - 9200:9200
+  #   networks:
+  #     - elastic
+  # kib01:
+  #   image: docker.elastic.co/kibana/kibana:7.8.0
+  #   container_name: kib01
+  #   ports:
+  #     - 5601:5601
+  #   environment:
+  #     ELASTICSEARCH_URL: http://elasticsearch:9200
+  #     ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+  #   networks:
+  #     - elastic
+  # logstash:
+  #   image: docker.elastic.co/logstash/logstash:7.8.0
+  #   container_name: logstash
+  #   volumes:
+  #     - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+  #     - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+  #   ports:
+  #     - "8080:8080"
+  #     - "5000:5000/tcp"
+  #     - "5000:5000/udp"
+  #     - "9600:9600"
+  #   environment:
+  #     LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+  #   networks:
+  #     - elastic
+  #   depends_on:
+  #     - elasticsearch
+
+  web:
+    build:
+      context: .
+    volumes:
+      - .:/home/daniel/app
+      - deps:/home/daniel/app/deps
+      - build:/home/daniel/app/build
+    environment:
+        # Variables to connect to our Postgres server
+        PGUSER: postgres
+        PGPASSWORD: postgres
+        PGDATABASE: fastpass_dev
+        PGPORT: 5432
+        # Hostname of our Postgres container
+        PGHOST: db
+    depends_on:
+      - db
+    ports:
+      - "4000:4000"
+  db:
+    image: postgres:11.4-alpine
+    command: 'postgres -c "max_connections=200"'
+    environment:
+      # Set user/password for Postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # Set a path where Postgres should store the data
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - postgres-data:/var/lib/postgresql/data:z
+
+volumes:
+  data01:
+    driver: local
+  postgres-data:
+  deps:
+  build:
+
+networks:
+  elastic:
+    driver: bridge

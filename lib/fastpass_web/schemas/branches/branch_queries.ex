@@ -7,6 +7,8 @@ defmodule FastpassWeb.Schema.Branches.BranchQueries do
   object :branch_queries do
     @desc "List branches"
     field :branches, list_of(:branch) do # Paginate later
+      arg(:latitude, :float)
+      arg(:longitude, :float)
       resolve(&Resolvers.BranchResolver.branches/3)
     end
 

@@ -1,6 +1,11 @@
 defmodule FastpassWeb.Schema.Branches.BranchTypes do
     use Absinthe.Schema.Notation
+
+    import Absinthe.Resolution.Helpers
   
+    alias Fastpass.Services
+    alias Fastpass.Branches
+    alias Fastpass.Establishments
     alias FastpassWeb.Resolvers
   
     object :branch do
@@ -11,17 +16,17 @@ defmodule FastpassWeb.Schema.Branches.BranchTypes do
       field :address, :string
       field :neighborhood, :string
 
-      field :company, :company do
-        resolve(&Resolvers.BranchResolver.company/3)
-      end
+      field :company, :company, resolve: dataloader(Establishments, :company)
 
       field :working_time_group, :working_time_group
-      field :statuses, list_of(:branch_status |> non_null) |> non_null
-      field :desks, list_of(:desk |> non_null) |> non_null
-      field :establishment_staffs, list_of(:establishment_staff |> non_null) |> non_null
-      field :services, list_of(:service |> non_null) |> non_null do
-        resolve(&Resolvers.BranchResolver.services/3)
+      field :statuses, list_of(:branch_status |> non_null) |> non_null, resolve: dataloader(Branches)
+      field :desks, list_of(:desk |> non_null) |> non_null do
+        resolve(&Resolvers.BranchResolver.desks/3)
       end
+      field :establishment_staffs, list_of(:establishment_staff |> non_null) |> non_null
+    
+      # Dataloader
+      field :services, list_of(:service |> non_null) |> non_null, resolve: dataloader(Services)
       
       field :inserted_at, :naive_datetime
       field :updated_at, :naive_datetime

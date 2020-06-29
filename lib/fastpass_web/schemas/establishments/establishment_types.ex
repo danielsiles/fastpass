@@ -1,7 +1,10 @@
 defmodule FastpassWeb.Schema.Establishments.EstablishmentTypes do
     use Absinthe.Schema.Notation
+
+    import Absinthe.Resolution.Helpers
   
     alias FastpassWeb.Resolvers
+    alias Fastpass.{Establishments,Branches}
 
     enum :company_type_enum do
       value :restaurant
@@ -14,7 +17,7 @@ defmodule FastpassWeb.Schema.Establishments.EstablishmentTypes do
       field :name, :string
       field :document_number, :string
       field :type, :company_type_enum
-      field :branches, list_of(:branch |> non_null) |> non_null
+      field :branches, list_of(:branch |> non_null) |> non_null, resolve: dataloader(Branches)
       field :owners, list_of(:establishment_owner |> non_null) |> non_null
       
       field :inserted_at, :naive_datetime
@@ -24,7 +27,7 @@ defmodule FastpassWeb.Schema.Establishments.EstablishmentTypes do
 
     object :establishment_owner do
       field :id, :id
-      field :company, :company
+      field :company, :company, resolve: dataloader(Establishments)
       field :user, :user
 
       field :inserted_at, :naive_datetime
@@ -35,7 +38,9 @@ defmodule FastpassWeb.Schema.Establishments.EstablishmentTypes do
     object :establishment_staff do
       field :id, :id
       field :user, :user
-      field :branch, :branch
+      field :branch, :branch do
+        resolve(&Resolvers.EstablishmentResolver.branch/3)
+      end
       field :role, :string
       
       field :ticket_actions, list_of(:ticket_action |> non_null)

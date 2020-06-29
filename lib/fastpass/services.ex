@@ -17,6 +17,7 @@ defmodule Fastpass.Services do
   }
   alias Fastpass.Branches
   alias Fastpass.Tickets
+  alias Fastpass.Tickets.Ticket
 
   @doc """
   Returns the list of services.
@@ -113,11 +114,12 @@ defmodule Fastpass.Services do
   end
 
   def add_service(user_id, attrs \\ %{}) do
+    attrs = Map.put(attrs, :status, :active)
     case Branches.is_user_owner(user_id, attrs.branch_id) do
       true -> 
         %Service{}
         |> Service.changeset(attrs)
-        |> Ecto.Changeset.put_assoc(:statuses, [%ServiceStatus{status: :active}])
+        |> Ecto.Changeset.put_assoc(:statuses, [%ServiceStatus{status: "active"}])
         |> Repo.insert()
       _ ->
         {:error, "You cannot add a service to a branch that you don't own"}  
@@ -169,7 +171,7 @@ defmodule Fastpass.Services do
     where: s.branch_id == ^branch_id,
     select: s
     Repo.all(query)
-end
+  end
 
   def next_fastpass_period(service_id) do
     with ({minimum_arrival_time, maximum_arrival_time} <- Tickets.get_next_fastpass_period(service_id, false)) do 
@@ -180,5 +182,26 @@ end
     else
       _ -> {:error, "Ocorreu um erro"}
     end
+  end
+
+  def waiting_time(service_id) do
+    query =
+      from t in Ticket,
+        where: t.service_id != ^service_id,
+        where: t.status == "waiting",
+        select: count("*")
+
+    [ticket_ahead] = Repo.all(query)
+
+    # Número fixo, trocar por estatistica do restaurante
+    {:ok, (ticket_ahead + 1) * 5}
+  end
+
+  def datasource() do
+    Dataloader.Ecto.new(Fastpass.Repo, query: &query/2)
+  end
+
+  def query(queryable, _) do
+    queryable
   end
 end

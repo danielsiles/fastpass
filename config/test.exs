@@ -1,11 +1,18 @@
 use Mix.Config
 
 # Configure your database
+# config :fastpass, Fastpass.Repo,
+#   username: "danielsiles",
+#   password: "",
+#   database: "fastpass_dev",
+#   hostname: "localhost",
+#   pool: Ecto.Adapters.SQL.Sandbox
+
 config :fastpass, Fastpass.Repo,
   username: "postgres",
   password: "postgres",
-  database: "fastpass_test",
-  hostname: "localhost",
+  database: "fastpass_dev",
+  hostname: "db",
   pool: Ecto.Adapters.SQL.Sandbox
 
 # We don't run a server during test. If one is required,

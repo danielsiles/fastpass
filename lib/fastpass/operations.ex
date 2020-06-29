@@ -126,4 +126,20 @@ defmodule Fastpass.Operations do
       end
     end)
   end
+
+  def working_time_group(company_id) do
+    query = from wtg in WorkingTimeGroup,
+    where: wtg.company_id == ^company_id,
+    select: wtg
+
+    Repo.all(query)
+  end
+
+  def datasource() do
+    Dataloader.Ecto.new(Fastpass.Repo, query: &query/2)
+  end
+
+  def query(queryable, _) do
+    queryable
+  end
 end

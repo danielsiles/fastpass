@@ -4,6 +4,7 @@ defmodule Fastpass.Repo.Migrations.CreateTickets do
   import EctoEnum
 
   defenum BookingFromTypeEnum, ["web", "app", "host"]
+  defenum TicketStatusEnum, ["waiting", "done", "canceled", "no_show", "called", "recalled", "arrived"]
 
   def change do
     create table(:tickets, primary_key: false) do
@@ -18,6 +19,7 @@ defmodule Fastpass.Repo.Migrations.CreateTickets do
       add :done_count, :integer, default: 0
       add :ticket_number, :string, null: false
       add :priority, :boolean, default: false
+      add :status, TicketStatusEnum.type(), null: false
       timestamps()
       soft_delete_columns()
     end

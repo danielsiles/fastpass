@@ -16,5 +16,12 @@ defmodule FastpassWeb.Schema.Accounts.UserQueries do
       middleware(Authorize, :any)
       resolve(&Resolvers.UserResolver.users/3)
     end
+
+    @desc "Get user by cpf"
+    field :get_user_by_cpf, :user do
+      arg(:cpf, non_null(:string))
+      middleware(Authorize, :any)
+      resolve(&Resolvers.UserResolver.get_user_by_cpf/3)
+    end
   end
 end

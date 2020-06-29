@@ -4,6 +4,7 @@ defmodule Fastpass.Establishments.Company do
   import Ecto.SoftDelete.Schema
   import EctoEnum
 
+  alias Fastpass.Branches.Branch
   alias Fastpass.Establishments.{
     EstablishmentOwner,
     EstablishmentStaff,
@@ -18,8 +19,9 @@ defmodule Fastpass.Establishments.Company do
     field :document_number, :string, unique: true
     field :type, CompanyTypeEnum
 
-    has_many :owners, EstablishmentOwner
+    has_one :owners, EstablishmentOwner
     has_many :employers, EstablishmentStaff
+    has_many :branches, Branch
 
     timestamps()
     soft_delete_schema()

@@ -7,6 +7,7 @@ defmodule Fastpass.Accounts do
   alias Fastpass.Repo
 
   alias Fastpass.Accounts.User
+  alias Fastpass.Establishments
 
   @doc """
   Returns the list of users.
@@ -50,9 +51,10 @@ defmodule Fastpass.Accounts do
 
   """
   def create_user(attrs \\ %{}) do
-    %User{}
-    |> User.changeset(attrs)
-    |> Repo.insert()
+    user =
+      %User{}
+      |> User.changeset(attrs)
+      |> Repo.insert()
   end
 
   @doc """
@@ -100,5 +102,13 @@ defmodule Fastpass.Accounts do
   """
   def change_user(%User{} = user) do
     User.changeset(user, %{})
+  end
+
+  def establishment_staff(user) do
+    Establishments.get_establishment_staff(user)
+  end
+
+  def get_user_by_cpf(cpf) do
+    Repo.get_by!(User, cpf: cpf)
   end
 end

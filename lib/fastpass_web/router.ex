@@ -12,11 +12,11 @@ defmodule FastpassWeb.Router do
 
     forward("/graphql", Absinthe.Plug, schema: FastpassWeb.Schema)
 
-    if Mix.env() == :dev do
+    # if Mix.env() == :dev do
       forward("/graphiql", Absinthe.Plug.GraphiQL,
       schema: FastpassWeb.Schema,
       interface: :advanced,
       socket: FastpassWeb.UserSocket)
-    end
+    # end
   end
 end

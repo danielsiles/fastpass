@@ -8,6 +8,7 @@ defmodule Fastpass.Establishments do
 
   alias Fastpass.Establishments.{
     EstablishmentOwner,
+    EstablishmentStaff,
     Company
   }
 
@@ -39,6 +40,8 @@ defmodule Fastpass.Establishments do
 
   """
   def get_establishment_owner!(id), do: Repo.get!(EstablishmentOwner, id)
+
+  def get_establishment_staff(user), do: Repo.get_by!(EstablishmentStaff, [user_id: user.id])
 
   def get_company!(id), do: Repo.get!(Company, id)
 
@@ -124,6 +127,14 @@ defmodule Fastpass.Establishments do
 
   def list_establishments do
     {:ok, Repo.all(Company)}
+  end
+
+  def datasource() do
+    Dataloader.Ecto.new(Fastpass.Repo, query: &query/2)
+  end
+
+  def query(queryable, _) do
+    queryable
   end
 
 end

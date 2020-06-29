@@ -1,6 +1,7 @@
 defmodule FastpassWeb.Schema.Tickets.TicketSubscriptions do
   use Absinthe.Schema.Notation
   
+    alias Fastpass.Repo
     alias Fastpass.Tickets
     alias FastpassWeb.Resolvers
     alias FastpassWeb.Middlewares.Authorize

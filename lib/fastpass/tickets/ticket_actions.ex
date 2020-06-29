@@ -7,15 +7,14 @@ defmodule Fastpass.Tickets.TicketAction do
   alias Fastpass.Tickets.Ticket
   alias Fastpass.Accounts.User
 
-  defenum TicketStatusEnum, ["waiting", "done", "canceled", "no_show", "called", "recalled", "arrived"]
   defenum TicketActionTypeEnum, ["book", "call", "recall", "transfer", "done", "cancel", "confirm_arrival"]
   
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "ticket_actions" do
-    belongs_to(:ticket, Ticket)
+    belongs_to(:ticket, Ticket, type: :binary_id)
     belongs_to(:actor, User, source: :actor, references: :id)
-    field :status, TicketStatusEnum
+    field :status, :string
     field :action, TicketActionTypeEnum
     # field :actor, :binary_id
     timestamps()

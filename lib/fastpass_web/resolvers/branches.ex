@@ -11,20 +11,28 @@ defmodule FastpassWeb.Resolvers.BranchResolver do
     Branches.add_desk(user.id, input)
   end
 
+  def branches(_, %{latitude: latitude, longitude: longitude}, _) do
+    {:ok, Branches.list_branches(latitude, longitude)}
+  end
+
   def branches(_, _, _) do
     {:ok, Branches.list_branches}
   end
-
+  
   def branch(_, %{branch_id: branch_id}, _) do
     {:ok, Branches.get_branch!(branch_id)}
   end
 
   def services(branch, _, _) do
-    {:ok, Services.list_working_services(branch.id)} |> IO.inspect
+    {:ok, Services.list_working_services(branch.id)}
   end
 
   def company(branch, _, _) do
     {:ok, Establishments.get_company!(branch.company_id)}
+  end
+
+  def desks(branch, _, _) do
+    {:ok, Branches.list_desks(branch)}
   end
   
 end
