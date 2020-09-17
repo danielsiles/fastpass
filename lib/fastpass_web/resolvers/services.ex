@@ -3,6 +3,7 @@ defmodule FastpassWeb.Resolvers.ServiceResolver do
   alias Fastpass.Branches
 
   def add_service(_, %{input: input}, %{context: %{current_user: user}}) do
+    
     Services.add_service(user.id, input)
   end
 

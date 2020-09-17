@@ -2,7 +2,7 @@ defmodule Fastpass.Branches do
   @moduledoc """
   The Branches context.
   """
-  
+
   import Ecto.Query, warn: false
   import Float
   alias Fastpass.Repo
@@ -12,14 +12,14 @@ defmodule Fastpass.Branches do
     Branch,
     BranchStatus,
     Desk
-  }
+    }
   alias Fastpass.Services.Service
   alias Fastpass.Establishments
   alias Fastpass.Establishments.{Company, EstablishmentStaff}
   alias Fastpass.Operations.{
     WorkingTimeGroup,
     WorkingTime
-  }
+    }
   alias Fastpass.Tickets.Ticket
 
   @doc """
@@ -37,6 +37,13 @@ defmodule Fastpass.Branches do
 
   """
   def get_branch!(id), do: Repo.get!(Branch, id)
+
+  def get_branch(id) do
+    case branch = Repo.get(Branch, id) do
+      nil -> {:error, "branch not found"}
+      _ -> {:ok, branch}
+    end
+  end
 
   @doc """
   Creates a branch.
@@ -105,16 +112,18 @@ defmodule Fastpass.Branches do
 
   def is_working(branch_id) do
     today = Date.utc_today
-    week_day = Date.day_of_week(today) 
+    week_day = Date.day_of_week(today)
     time = Time.utc_now
     query = from b in Branch,
-    join: wtg in WorkingTimeGroup, on: b.working_time_group_id == wtg.id,
-    join: wt in WorkingTime, on: wt.working_time_group_id == wtg.id,
-    where: wt.week_day == ^week_day,
-    where: b.id == ^branch_id,
-    where: wt.open_time < ^time,
-    where: wt.close_time > ^time,
-    select: wt
+                 join: wtg in WorkingTimeGroup,
+                 on: b.working_time_group_id == wtg.id,
+                 join: wt in WorkingTime,
+                 on: wt.working_time_group_id == wtg.id,
+                 where: wt.week_day == ^week_day,
+                 where: b.id == ^branch_id,
+                 where: wt.open_time < ^time,
+                 where: wt.close_time > ^time,
+                 select: wt
     Repo.exists?(query)
   end
 
@@ -124,8 +133,8 @@ defmodule Fastpass.Branches do
     where eo.company_id = c.id and b.company_id = c.id and 
     b.id = $1 and 
     eo.user_id = $2"
-    {:ok,branch} = Ecto.UUID.dump(branch_id)
-    {:ok,user} = Ecto.UUID.dump(user_id)
+    {:ok, branch} = Ecto.UUID.dump(branch_id)
+    {:ok, user} = Ecto.UUID.dump(user_id)
     with (%{rows: [[result]]} <- Ecto.Adapters.SQL.query!(Repo, q, [branch, user])) do
       result
     else
@@ -139,10 +148,12 @@ defmodule Fastpass.Branches do
 
   def is_user_staff(user_id, service_id, type) when type == :service do
     query = from es in EstablishmentStaff,
-      join: b in Branch, on: b.id == es.branch_id,
-      join: s in Service, on: s.branch_id == b.id,
-      where: es.user_id == ^user_id,
-      where: s.id == ^service_id
+                 join: b in Branch,
+                 on: b.id == es.branch_id,
+                 join: s in Service,
+                 on: s.branch_id == b.id,
+                 where: es.user_id == ^user_id,
+                 where: s.id == ^service_id
     Repo.exists?(query)
   end
 
@@ -152,8 +163,8 @@ defmodule Fastpass.Branches do
     where d.branch_id = b.id and eo.company_id = c.id and b.company_id = c.id and 
     d.id = $1 and 
     eo.user_id = $2"
-    {:ok,desk} = Ecto.UUID.dump(desk_id)
-    {:ok,user} = Ecto.UUID.dump(user_id)
+    {:ok, desk} = Ecto.UUID.dump(desk_id)
+    {:ok, user} = Ecto.UUID.dump(user_id)
     with (%{rows: [[result]]} <- Ecto.Adapters.SQL.query!(Repo, q, [desk, user])) do
       result
     else
@@ -167,8 +178,8 @@ defmodule Fastpass.Branches do
     where s.branch_id = b.id and eo.company_id = c.id and b.company_id = c.id and 
     s.id = $1 and 
     eo.user_id = $2"
-    {:ok,service} = Ecto.UUID.dump(service_id)
-    {:ok,user} = Ecto.UUID.dump(user_id)
+    {:ok, service} = Ecto.UUID.dump(service_id)
+    {:ok, user} = Ecto.UUID.dump(user_id)
     with (%{rows: [[result]]} <- Ecto.Adapters.SQL.query!(Repo, q, [service, user])) do
       result
     else
@@ -179,24 +190,29 @@ defmodule Fastpass.Branches do
   def add_branch(user_id, attrs \\ %{}) do
     attrs = Map.put(attrs, :status, :active)
     case Establishments.is_user_owner(user_id, attrs.company_id) do
-      true -> 
+      true ->
         %Branch{}
         |> Branch.changeset(attrs)
         |> Ecto.Changeset.put_assoc(:statuses, [%BranchStatus{status: "active"}])
         |> Repo.insert
       _ ->
-        {:error, "You cannot add a branch to a company that you don't own"}  
+        {:error, "You cannot add a branch to a company that you don't own"}
     end
   end
 
   def add_desk(user_id, attrs \\ %{}) do
     case Branches.is_user_owner(user_id, attrs.branch_id) do
-      true -> 
-        %Desk{}
-        |> Desk.changeset(attrs)
-        |> Repo.insert
+      true ->
+        try do
+          %Desk{}
+          |> Desk.changeset(attrs)
+          |> Repo.insert
+        rescue
+          _ ->
+            {:error, "Name already exists"}
+        end
       _ ->
-        {:error, "You cannot add a desk to a branch that you don't own"}  
+        {:error, "You cannot add a desk to a branch that you don't own"}
     end
   end
 
@@ -209,7 +225,7 @@ defmodule Fastpass.Branches do
 
     with (res <- Ecto.Adapters.SQL.query!(Repo, query, [latitude, longitude])) do
       cols = Enum.map res.columns, &(String.to_atom(&1))
-      str = Enum.map res.rows, fn(row) -> struct(Branch, Enum.zip(cols, row)) end
+      str = Enum.map res.rows, fn (row) -> struct(Branch, Enum.zip(cols, row)) end
     else
       _ -> false
     end
@@ -217,8 +233,8 @@ defmodule Fastpass.Branches do
 
   def list_desks(branch) do
     query = from d in Desk,
-    where: d.branch_id == ^branch.id,
-    select: d
+                 where: d.branch_id == ^branch.id,
+                 select: d
     Repo.all(query)
   end
 
@@ -227,7 +243,8 @@ defmodule Fastpass.Branches do
   end
 
   def query(queryable, _) do
-    queryable |> IO.inspect
+    queryable
+    |> IO.inspect
   end
 
 end

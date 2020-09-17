@@ -43,6 +43,7 @@ defmodule Fastpass.Tickets do
 
   """
   def get_ticket!(id), do: Repo.get!(Ticket, id)
+  def get_ticket(id), do: Repo.get(Ticket, id)
 
   @doc """
   Creates a ticket.
@@ -113,8 +114,8 @@ defmodule Fastpass.Tickets do
   def get_branch_id(%Ticket{} = ticket) do
     query =
       from s in Service,
-        where: s.id == ^ticket.service_id,
-        select: s
+           where: s.id == ^ticket.service_id,
+           select: s
 
     Repo.one(query).branch_id
   end
@@ -122,10 +123,12 @@ defmodule Fastpass.Tickets do
   def current_ticket(user) do
     query =
       from r in Ticket,
-        where: r.user_id == ^user.id,
-        where: r.status == ^:waiting or r.status == ^:called or r.status == ^:recalled,
-        order_by: [desc: r.inserted_at],
-        limit: 1
+           where: r.user_id == ^user.id,
+           where: r.status == ^:waiting or r.status == ^:called or r.status == ^:recalled,
+           order_by: [
+             desc: r.inserted_at
+           ],
+           limit: 1
 
     {:ok, Repo.one(query)}
   end
@@ -135,14 +138,18 @@ defmodule Fastpass.Tickets do
     now = Timex.local()
     today = Timex.to_naive_datetime(Timex.today)
     query = from t in Ticket,
-    join: b in Booking, on: b.ticket_id == t.id,
-    where: t.service_id == ^service_id,
-    where: t.is_fastpass == true,
-    where: t.inserted_at > ^today,
-    order_by: [desc: t.inserted_at, desc: t.ticket_number],
-    select: b.maximum_arrival_time,
-    limit: 1
-    
+                 join: b in Booking,
+                 on: b.ticket_id == t.id,
+                 where: t.service_id == ^service_id,
+                 where: t.is_fastpass == true,
+                 where: t.inserted_at > ^today,
+                 order_by: [
+                   desc: t.inserted_at,
+                   desc: t.ticket_number
+                 ],
+                 select: b.maximum_arrival_time,
+                 limit: 1
+
     # case Redix.command(:redix, ["GET", today <> ":" <> service_id <> ":fastpass"]) do
     case Repo.one(query) do
       nil ->
@@ -182,7 +189,8 @@ defmodule Fastpass.Tickets do
       last_period ->
         # {:ok, datetime, 0} = DateTime.from_iso8601(last_period)
         {:ok, datetime} = DateTime.from_naive(last_period, "Etc/UTC")
-        datetime |> IO.inspect()
+        datetime
+        |> IO.inspect()
 
         last_period =
           if DateTime.to_time(now) > datetime do
@@ -258,32 +266,36 @@ defmodule Fastpass.Tickets do
   # end
 
   def create_ticket(user, attrs) do
-    service = Services.get_service!(attrs.service_id)
-    case (Services.is_working(attrs.service_id) and Branches.is_working(service.branch_id)) do
+    service = Services.get_service(attrs.service_id)
+    case (service != nil and Services.is_working(attrs.service_id) and Branches.is_working(service.branch_id)) do
       true ->
         result =
-          Repo.transaction(fn ->
-            # ticket_number = Tickets.get_last_ticket_number(service)
+          Repo.transaction(
+            fn ->
+              attrs =
+                Map.put(attrs, :user_id, user.id)
+                |> Map.put(:status, :waiting)
 
-            attrs =
-              # Map.put(attrs, :ticket_number, ticket_number)
-              Map.put(attrs, :user_id, user.id)
-              |> Map.put(:status, :waiting)
+              try do
+                %Ticket{}
+                |> Ticket.changeset(attrs)
+                |> Ecto.Changeset.put_assoc(
+                     :actions,
+                     [
+                       %TicketAction{
+                         status: "waiting",
+                         action: :book,
+                         actor: user
+                       }
+                     ]
+                   )
+                |> Repo.insert()
+              rescue
+                _ -> {:error, "You are already in a line"}
+              end
 
-            # Checar se o usuario já se encontra em uma fila
-            IO.inspect(user)
-            # try do
-            %Ticket{}
-            |> Ticket.changeset(attrs)
-            |> Ecto.Changeset.put_assoc(:actions, [
-              %TicketAction{
-                status: "waiting",
-                action: :book,
-                actor: user
-              }
-            ])
-            |> Repo.insert()
-          end)
+            end
+          )
 
         with({:ok, ticket} <- result) do
           ticket
@@ -297,48 +309,48 @@ defmodule Fastpass.Tickets do
   end
 
   def create_booking(user, attrs) do
-    service = Services.get_service!(attrs.service_id)
+    service = Services.get_service(attrs.service_id)
 
-    case (Services.is_working(attrs.service_id) and Branches.is_working(service.branch_id)) do
+    case (service != nil and Services.is_working(attrs.service_id) and Branches.is_working(service.branch_id)) do
       true ->
         result =
-          Repo.transaction(fn ->
-            # ticket_number = Tickets.get_last_ticket_number(service)
+          Repo.transaction(
+            fn ->
+              attrs =
+                Map.put(attrs, :user_id, user.id)
+                |> Map.put(:is_fastpass, true)
+                |> Map.put(:status, :waiting)
 
-            attrs =
-              # Map.put(attrs, :ticket_number, ticket_number)
-              Map.put(attrs, :user_id, user.id)
-              |> Map.put(:is_fastpass, true)
-              |> Map.put(:status, :waiting)
+              {minimum_arrival_time, maximum_arrival_time} =
+                Tickets.get_next_fastpass_period(service.id)
 
-            {minimum_arrival_time, maximum_arrival_time} =
-              Tickets.get_next_fastpass_period(service.id)
+              # Checar se o max_arrival_time é menor que o close_time do servico e branch
+              booking_attrs = %{
+                minimum_arrival_time: DateTime.to_naive(minimum_arrival_time),
+                maximum_arrival_time: DateTime.to_naive(maximum_arrival_time)
+              }
 
-            # Checar se o max_arrival_time é menor que o close_time do servico e branch
-
-            booking_attrs = %{
-              minimum_arrival_time: DateTime.to_naive(minimum_arrival_time),
-              maximum_arrival_time: DateTime.to_naive(maximum_arrival_time)
-            }
-
-            # Trigger checa se o usuario já está em uma fila
-            try do
-              ticket =
-                %Ticket{}
-                |> Ticket.changeset(attrs)
-                |> Ecto.Changeset.put_assoc(:booking, booking_attrs)
-                |> Ecto.Changeset.put_assoc(:actions, [
-                  %TicketAction{
-                    status: "waiting",
-                    action: :book,
-                    actor: user
-                  }
-                ])
-                |> Repo.insert()
-            rescue
-              x -> {:error, "You are already in a line"}
+              try do
+                ticket =
+                  %Ticket{}
+                  |> Ticket.changeset(attrs)
+                  |> Ecto.Changeset.put_assoc(:booking, booking_attrs)
+                  |> Ecto.Changeset.put_assoc(
+                       :actions,
+                       [
+                         %TicketAction{
+                           status: "waiting",
+                           action: :book,
+                           actor: user
+                         }
+                       ]
+                     )
+                  |> Repo.insert()
+              rescue
+                x -> {:error, "You are already in a line"}
+              end
             end
-          end)
+          )
 
         with({:ok, ticket} <- result) do
           ticket
@@ -356,45 +368,46 @@ defmodule Fastpass.Tickets do
 
   def check_in_booking(user, ticket_id) do
     today = Timex.format!(Timex.local, "%FT%T%:z", :strftime)
-    booking = Repo.get_by!(Booking, ticket_id: ticket_id)
+    booking = Repo.get_by(Booking, ticket_id: ticket_id)
 
     {:ok, check_in} = NaiveDateTime.from_iso8601(today)
     check_in = NaiveDateTime.truncate(check_in, :second)
-    
-    IO.inspect booking.check_in != nil
-    if booking.check_in != nil do
-      {:error, "You have already checked in"}
-    else
-      if check_in > booking.minimum_arrival_time and check_in < booking.maximum_arrival_time do
-        booking = Ecto.Changeset.change(booking, check_in: check_in)
-        Repo.update(booking)  
+
+    if booking != nil do
+      if booking.check_in != nil do
+        {:error, "You have already checked in"}
       else
-        {:error, "Você não está no horario correto"}
+        if check_in > booking.minimum_arrival_time and check_in < booking.maximum_arrival_time do
+          booking = Ecto.Changeset.change(booking, check_in: check_in)
+          Repo.update(booking)
+        else
+          {:error, "Você não está no horario correto"}
+        end
       end
+    else
+      {:error, "Invalid ticket"}
     end
   end
 
   def call_next_ticket(desk_id, actor) do
     query =
       from t in Ticket,
-        join: s in Service,
-        on: s.id == t.service_id,
-        join: d in Desk,
-        on: d.branch_id == s.branch_id,
-        where: d.id == ^desk_id,
-        where: t.status == ^:waiting,
-        distinct: true,
-        select: s.id
+           join: s in Service,
+           on: s.id == t.service_id,
+           join: d in Desk,
+           on: d.branch_id == s.branch_id,
+           where: d.id == ^desk_id,
+           where: t.status == ^:waiting,
+           distinct: true,
+           select: s.id
 
     waiting_tickets = Repo.all(query)
-
     desk_services =
       from ds in DeskService,
-        where: ds.desk_id == ^desk_id,
-        where: ds.service_id in ^waiting_tickets,
-        select: ds
+           where: ds.desk_id == ^desk_id,
+           where: ds.service_id in ^waiting_tickets,
+           select: ds
 
-    # IO.inspect desk_services
     services = Repo.all(desk_services)
 
     case length(services) > 0 do
@@ -403,22 +416,31 @@ defmodule Fastpass.Tickets do
         priority_sum = Enum.reduce(services, 0, fn x, acc -> x.priority + acc end)
 
         desk_service =
-          Enum.reduce_while(services, priority_sum, fn x, acc ->
-            if random < x.priority / acc do
-              {:halt, x}
-            else
-              {:cont, acc - x.priority}
+          Enum.reduce_while(
+            services,
+            priority_sum,
+            fn x, acc ->
+              if random < x.priority / acc do
+                {:halt, x}
+              else
+                {:cont, acc - x.priority}
+              end
             end
-          end)
+          )
 
-        {:ok, ticket} =
-          Repo.transaction(fn ->
-            ticket = Tickets.get_next_waiting_ticket(desk_service.service_id)
-            Tickets.call_ticket(ticket, actor)
-            ticket
-          end)
+        {:ok, result} =
+          Repo.transaction(
+            fn ->
+              ticket = Tickets.get_next_waiting_ticket(desk_service.service_id)
+              Tickets.call_ticket(ticket, actor)
+            end
+          )
 
-        {:ok, ticket}
+        with({:ok, ticket} <- result) do
+          {:ok, ticket}
+        else
+          _ -> {:error, "You do not have permission to call this ticket"}
+        end
 
       false ->
         {:error, "The line is empty"}
@@ -428,13 +450,17 @@ defmodule Fastpass.Tickets do
   def call_next_ticket(desk_id, service_id, actor) do
     query =
       from t in Ticket,
-        left_join: b in Booking, on: b.ticket_id == t.id,
-        where: (t.is_fastpass == false or not is_nil(b.check_in)),
-        where: t.service_id == ^service_id,
-        where: t.status == ^:waiting,
-        order_by: [asc: b.check_in, asc: t.inserted_at],
-        select: t,
-        limit: 1
+           left_join: b in Booking,
+           on: b.ticket_id == t.id,
+           where: (t.is_fastpass == false or not is_nil(b.check_in)),
+           where: t.service_id == ^service_id,
+           where: t.status == ^:waiting,
+           order_by: [
+             asc: b.check_in,
+             asc: t.inserted_at
+           ],
+           select: t,
+           limit: 1
 
     waiting_ticket = Repo.one(query)
 
@@ -443,23 +469,35 @@ defmodule Fastpass.Tickets do
         {:error, "There is not ticket for this service"}
 
       _ ->
-        Repo.transaction(fn ->
-          Tickets.call_ticket(waiting_ticket, actor)
-          waiting_ticket
-        end)
+        {:ok, result} =
+          Repo.transaction(
+            fn ->
+              Tickets.call_ticket(waiting_ticket, actor)
+            end
+          )
+
+        with({:ok, ticket} <- result) do
+          {:ok, ticket}
+        else
+          _ -> {:error, "You do not have permission to call this ticket"}
+        end
     end
   end
 
   def get_next_waiting_ticket(service_id) do
     query =
       from t in Ticket,
-        left_join: b in Booking, on: b.ticket_id == t.id,
-        where: (t.is_fastpass == false or not is_nil(b.check_in)),
-        where: t.service_id == ^service_id,
-        where: t.status == ^:waiting,
-        order_by: [asc: b.check_in, asc: t.inserted_at],
-        select: t,
-        limit: 1
+           left_join: b in Booking,
+           on: b.ticket_id == t.id,
+           where: (t.is_fastpass == false or not is_nil(b.check_in)),
+           where: t.service_id == ^service_id,
+           where: t.status == ^:waiting,
+           order_by: [
+             asc: b.check_in,
+             asc: t.inserted_at
+           ],
+           select: t,
+           limit: 1
 
     waiting_ticket = Repo.one(query)
   end
@@ -467,39 +505,51 @@ defmodule Fastpass.Tickets do
   def latest_tickets(branch_id) do
     query =
       from t in Ticket,
-        left_join: s in Service, on: s.id == t.service_id,
-        where: s.branch_id == ^branch_id,
-        where: (t.status == ^:called or t.status == ^:recalled or t.status == ^:arrived),
-        order_by: [desc: t.inserted_at],
-        select: t,
-        limit: 10
+           left_join: s in Service,
+           on: s.id == t.service_id,
+           where: s.branch_id == ^branch_id,
+           where: (t.status == ^:called or t.status == ^:recalled or t.status == ^:arrived),
+           order_by: [
+             desc: t.inserted_at
+           ],
+           select: t,
+           limit: 10
 
     {:ok, Repo.all(query)}
   end
 
   def call_ticket(ticket, actor) do
-    %TicketAction{}
-    |> TicketAction.changeset(%{
-      ticket_id: ticket.id,
-      status: "called",
-      action: "call",
-      actor_id: actor.id
-    })
-    |> Repo.insert()
+    if !Tickets.is_user_staff(actor.id, ticket.id) do
+      {:error, "Você não tem permissão para alterar o status deste ticket"}
+    else
+      %TicketAction{}
+      |> TicketAction.changeset(
+           %{
+             ticket_id: ticket.id,
+             status: "called",
+             action: "call",
+             actor_id: actor.id
+           }
+         )
+      |> Repo.insert()
 
-    ticket = Ecto.Changeset.change(ticket, status: :called)
-    Repo.update(ticket)
+      ticket = Ecto.Changeset.change(ticket, status: :called)
+      Repo.update(ticket)
+      |> IO.inspect
+    end
   end
 
-  
+
 
   def get_status(ticket_id) do
     query =
       from ta in TicketAction,
-        where: ta.ticket_id == ^ticket_id,
-        order_by: [desc: :inserted_at],
-        select: ta,
-        limit: 1
+           where: ta.ticket_id == ^ticket_id,
+           order_by: [
+             desc: :inserted_at
+           ],
+           select: ta,
+           limit: 1
 
     Repo.one(query)
   end
@@ -507,10 +557,10 @@ defmodule Fastpass.Tickets do
   def estimated_waiting_time(ticket) do
     query =
       from t in Ticket,
-        where: t.id != ^ticket.id,
-        where: t.inserted_at < ^ticket.inserted_at,
-        where: t.status == "waiting",
-        select: count("*")
+           where: t.id != ^ticket.id,
+           where: t.inserted_at < ^ticket.inserted_at,
+           where: t.status == "waiting",
+           select: count("*")
 
     [ticket_ahead] = Repo.all(query)
 
@@ -522,9 +572,11 @@ defmodule Fastpass.Tickets do
     with true <- Branches.is_user_owner(user.id, desk_id, :desk) do
       query =
         from t in Ticket,
-          where: t.status == "called" or t.status == "recalled" or t.status == "arrived",
-          order_by: [desc: t.inserted_at],
-          select: t
+             where: t.status == "called" or t.status == "recalled" or t.status == "arrived",
+             order_by: [
+               desc: t.inserted_at
+             ],
+             select: t
 
       {:ok, Repo.all(query)}
     else
@@ -535,9 +587,9 @@ defmodule Fastpass.Tickets do
   def waiting_tickets(user, branch_id) do
     with true <- Branches.is_user_staff(user.id, branch_id, :branch) do
       query =
-      from t in Ticket,
-        where: t.status == "waiting",
-        select: t
+        from t in Ticket,
+             where: t.status == "waiting",
+             select: t
 
       {:ok, Repo.all(query)}
     else
@@ -547,8 +599,8 @@ defmodule Fastpass.Tickets do
 
   def is_user_staff(user_id, ticket_id) do
     q = "SELECT TRUE FROM tickets as t, services as s, establishment_staffs as es where t.service_id = s.id and s.branch_id = es.branch_id and es.user_id = $1 and t.id = $2"
-    {:ok,ticket} = Ecto.UUID.dump(ticket_id)
-    {:ok,user} = Ecto.UUID.dump(user_id)
+    {:ok, ticket} = Ecto.UUID.dump(ticket_id)
+    {:ok, user} = Ecto.UUID.dump(user_id)
     with (%{rows: [[result]]} <- Ecto.Adapters.SQL.query!(Repo, q, [user, ticket])) do
       result
     else
@@ -557,8 +609,8 @@ defmodule Fastpass.Tickets do
   end
 
   def confirm_ticket(ticket_id, actor) do
-    ticket = Tickets.get_ticket!(ticket_id)
-    if !Tickets.is_user_staff(actor.id, ticket_id) do
+    ticket = Tickets.get_ticket(ticket_id)
+    if ticket != nil and !Tickets.is_user_staff(actor.id, ticket_id) do
       {:error, "Você não tem permissão para alterar o status deste ticket"}
     else
       case ticket.status do
@@ -573,12 +625,14 @@ defmodule Fastpass.Tickets do
 
         _ ->
           %TicketAction{}
-          |> TicketAction.changeset(%{
-            ticket_id: ticket_id,
-            status: "arrived",
-            action: "confirm_arrival",
-            actor_id: actor.id
-          })
+          |> TicketAction.changeset(
+               %{
+                 ticket_id: ticket_id,
+                 status: "arrived",
+                 action: "confirm_arrival",
+                 actor_id: actor.id
+               }
+             )
           |> Repo.insert()
 
           ticket = Ecto.Changeset.change(ticket, status: :arrived)
@@ -588,8 +642,8 @@ defmodule Fastpass.Tickets do
   end
 
   def absent_ticket(ticket_id, actor) do
-    ticket = Tickets.get_ticket!(ticket_id)
-    if !Tickets.is_user_staff(actor.id, ticket_id) do
+    ticket = Tickets.get_ticket(ticket_id)
+    if ticket != nil and !Tickets.is_user_staff(actor.id, ticket_id) do
       {:error, "Você não tem permissão para alterar o status deste ticket"}
     else
       case ticket.status do
@@ -604,12 +658,14 @@ defmodule Fastpass.Tickets do
 
         _ ->
           %TicketAction{}
-          |> TicketAction.changeset(%{
-            ticket_id: ticket_id,
-            status: "no_show",
-            action: "cancel",
-            actor_id: actor.id
-          })
+          |> TicketAction.changeset(
+               %{
+                 ticket_id: ticket_id,
+                 status: "no_show",
+                 action: "cancel",
+                 actor_id: actor.id
+               }
+             )
           |> Repo.insert()
 
           ticket = Ecto.Changeset.change(ticket, status: :no_show)
@@ -619,8 +675,8 @@ defmodule Fastpass.Tickets do
   end
 
   def finalize_ticket(ticket_id, actor) do
-    ticket = Tickets.get_ticket!(ticket_id)
-    if !Tickets.is_user_staff(actor.id, ticket_id) do
+    ticket = Tickets.get_ticket(ticket_id)
+    if ticket != nil and !Tickets.is_user_staff(actor.id, ticket_id) do
       {:error, "Você não tem permissão para alterar o status deste ticket"}
     else
       case ticket.status do
@@ -635,12 +691,14 @@ defmodule Fastpass.Tickets do
 
         _ ->
           %TicketAction{}
-          |> TicketAction.changeset(%{
-            ticket_id: ticket_id,
-            status: "done",
-            action: "done",
-            actor_id: actor.id
-          })
+          |> TicketAction.changeset(
+               %{
+                 ticket_id: ticket_id,
+                 status: "done",
+                 action: "done",
+                 actor_id: actor.id
+               }
+             )
           |> Repo.insert()
 
           ticket = Ecto.Changeset.change(ticket, status: :done)
@@ -650,8 +708,8 @@ defmodule Fastpass.Tickets do
   end
 
   def recall_ticket(ticket_id, actor) do
-    ticket = Tickets.get_ticket!(ticket_id)
-    if !Tickets.is_user_staff(actor.id, ticket_id) do
+    ticket = Tickets.get_ticket(ticket_id)
+    if ticket != nil and !Tickets.is_user_staff(actor.id, ticket_id) do
       {:error, "Você não tem permissão para alterar o status deste ticket"}
     else
       case ticket.status do
@@ -672,12 +730,14 @@ defmodule Fastpass.Tickets do
 
         _ ->
           %TicketAction{}
-          |> TicketAction.changeset(%{
-            ticket_id: ticket_id,
-            status: "recalled",
-            action: "recall",
-            actor_id: actor.id
-          })
+          |> TicketAction.changeset(
+               %{
+                 ticket_id: ticket_id,
+                 status: "recalled",
+                 action: "recall",
+                 actor_id: actor.id
+               }
+             )
           |> Repo.insert()
 
           ticket = Ecto.Changeset.change(ticket, status: :recalled)
@@ -687,8 +747,8 @@ defmodule Fastpass.Tickets do
   end
 
   def cancel_ticket(ticket_id, actor) do
-    ticket = Tickets.get_ticket!(ticket_id)
-    if !Tickets.is_user_staff(actor.id, ticket_id) do
+    ticket = Tickets.get_ticket(ticket_id)
+    if ticket != nil and !Tickets.is_user_staff(actor.id, ticket_id) do
       {:error, "Você não tem permissão para alterar o status deste ticket"}
     else
       case ticket.status do
@@ -703,12 +763,14 @@ defmodule Fastpass.Tickets do
 
         _ ->
           %TicketAction{}
-          |> TicketAction.changeset(%{
-            ticket_id: ticket_id,
-            status: "canceled",
-            action: "cancel",
-            actor_id: actor.id
-          })
+          |> TicketAction.changeset(
+               %{
+                 ticket_id: ticket_id,
+                 status: "canceled",
+                 action: "cancel",
+                 actor_id: actor.id
+               }
+             )
           |> Repo.insert()
 
           ticket = Ecto.Changeset.change(ticket, status: :canceled)
@@ -718,8 +780,8 @@ defmodule Fastpass.Tickets do
   end
 
   def transfer_ticket(ticket_id, new_service_id, actor) do
-    ticket = Tickets.get_ticket!(ticket_id)
-    if !Tickets.is_user_staff(actor.id, ticket_id) do
+    ticket = Tickets.get_ticket(ticket_id)
+    if ticket != nil and !Tickets.is_user_staff(actor.id, ticket_id) do
       {:error, "Você não tem permissão para alterar o status deste ticket"}
     else
       case ticket.status do
@@ -734,20 +796,24 @@ defmodule Fastpass.Tickets do
 
         _ ->
           %TicketAction{}
-          |> TicketAction.changeset(%{
-            ticket_id: ticket_id,
-            status: "waiting",
-            action: "transfer",
-            actor_id: actor.id
-          })
+          |> TicketAction.changeset(
+               %{
+                 ticket_id: ticket_id,
+                 status: "waiting",
+                 action: "transfer",
+                 actor_id: actor.id
+               }
+             )
           |> Repo.insert()
 
           %TicketTransfer{}
-          |> TicketTransfer.changeset(%{
-            ticket_id: ticket_id,
-            old_service_id: ticket.service_id,
-            new_service_id: new_service_id
-          })
+          |> TicketTransfer.changeset(
+               %{
+                 ticket_id: ticket_id,
+                 old_service_id: ticket.service_id,
+                 new_service_id: new_service_id
+               }
+             )
           |> Repo.insert()
 
           ticket = Ecto.Changeset.change(ticket, status: :waiting, service_id: new_service_id)
@@ -759,25 +825,36 @@ defmodule Fastpass.Tickets do
   def clean_no_show_tickets do
     q = "SELECT id FROM tickets where (status = 'recalled' or status = 'called') and EXTRACT(EPOCH FROM (now() - updated_at)) > 60 * 15"
     with (%{rows: tickets} <- Ecto.Adapters.SQL.query!(Repo, q, [])) do
-      expired_tickets = Enum.map(tickets, fn x -> 
-        [ticket_id] = x
-        {:ok, ticket_binary_id} = Ecto.UUID.load(ticket_id)
-        ticket_binary_id
-      end)
+      expired_tickets = Enum.map(
+        tickets,
+        fn x ->
+          [ticket_id] = x
+          {:ok, ticket_binary_id} = Ecto.UUID.load(ticket_id)
+          ticket_binary_id
+        end
+      )
 
-      Ticket |> where([t], t.id in ^expired_tickets)
-      |> Repo.update_all(set: [status: :no_show])
+      Ticket
+      |> where([t], t.id in ^expired_tickets)
+      |> Repo.update_all(
+           set: [
+             status: :no_show
+           ]
+         )
 
-      actions = Enum.map(expired_tickets, fn ticket_id ->
-        %{
-          ticket_id: ticket_id,
-          status: "no_show",
-          action: "cancel",
-          actor_id: nil,
-          inserted_at: NaiveDateTime.truncate(Timex.to_naive_datetime(Timex.local), :second),
-          updated_at: NaiveDateTime.truncate(Timex.to_naive_datetime(Timex.local), :second)
-        }
-      end) 
+      actions = Enum.map(
+        expired_tickets,
+        fn ticket_id ->
+          %{
+            ticket_id: ticket_id,
+            status: "no_show",
+            action: "cancel",
+            actor_id: nil,
+            inserted_at: NaiveDateTime.truncate(Timex.to_naive_datetime(Timex.local), :second),
+            updated_at: NaiveDateTime.truncate(Timex.to_naive_datetime(Timex.local), :second)
+          }
+        end
+      )
       Repo.insert_all(TicketAction, actions)
     else
       _ -> false
@@ -787,25 +864,36 @@ defmodule Fastpass.Tickets do
   def clean_waiting_tickets do
     q = "SELECT id FROM tickets where status = 'waiting' and EXTRACT(EPOCH FROM (now() - updated_at)) > 60 * 60 * 6"
     with (%{rows: tickets} <- Ecto.Adapters.SQL.query!(Repo, q, [])) do
-      expired_tickets = Enum.map(tickets, fn x -> 
-        [ticket_id] = x
-        {:ok, ticket_binary_id} = Ecto.UUID.load(ticket_id)
-        ticket_binary_id
-      end)
+      expired_tickets = Enum.map(
+        tickets,
+        fn x ->
+          [ticket_id] = x
+          {:ok, ticket_binary_id} = Ecto.UUID.load(ticket_id)
+          ticket_binary_id
+        end
+      )
 
-      Ticket |> where([t], t.id in ^expired_tickets)
-      |> Repo.update_all(set: [status: :no_show])
+      Ticket
+      |> where([t], t.id in ^expired_tickets)
+      |> Repo.update_all(
+           set: [
+             status: :no_show
+           ]
+         )
 
-      actions = Enum.map(expired_tickets, fn ticket_id ->
-        %{
-          ticket_id: ticket_id,
-          status: "canceled",
-          action: "cancel",
-          actor_id: nil,
-          inserted_at: NaiveDateTime.truncate(Timex.to_naive_datetime(Timex.local), :second),
-          updated_at: NaiveDateTime.truncate(Timex.to_naive_datetime(Timex.local), :second)
-        }
-      end) 
+      actions = Enum.map(
+        expired_tickets,
+        fn ticket_id ->
+          %{
+            ticket_id: ticket_id,
+            status: "canceled",
+            action: "cancel",
+            actor_id: nil,
+            inserted_at: NaiveDateTime.truncate(Timex.to_naive_datetime(Timex.local), :second),
+            updated_at: NaiveDateTime.truncate(Timex.to_naive_datetime(Timex.local), :second)
+          }
+        end
+      )
       Repo.insert_all(TicketAction, actions)
     else
       _ -> false
@@ -814,13 +902,16 @@ defmodule Fastpass.Tickets do
 
   def host_create_ticket(user, input) do
     case Branches.is_user_staff(user.id, input.service_id, :service) do
-      true -> 
+      true ->
         ticket_user = Accounts.get_user!(input.user_id)
-        Tickets.create_ticket(ticket_user, %{
-          booking_from: :host,
-          priority: input.priority,
-          service_id: input.service_id
-        })
+        Tickets.create_ticket(
+          ticket_user,
+          %{
+            booking_from: :host,
+            priority: input.priority,
+            service_id: input.service_id
+          }
+        )
       _ -> {:error, "Você não tem permissao para fazer isto"}
     end
   end

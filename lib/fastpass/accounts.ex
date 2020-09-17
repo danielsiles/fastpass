@@ -109,6 +109,9 @@ defmodule Fastpass.Accounts do
   end
 
   def get_user_by_cpf(cpf) do
-    Repo.get_by!(User, cpf: cpf)
+    case user = Repo.get_by(User, cpf: cpf) do
+      nil -> {:error, "user not found"}
+      _ -> {:ok, user}
+    end
   end
 end

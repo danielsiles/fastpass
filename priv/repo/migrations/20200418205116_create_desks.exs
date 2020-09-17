@@ -11,5 +11,6 @@ defmodule Fastpass.Repo.Migrations.CreateDesks do
       soft_delete_columns()
     end
 
+    create unique_index(:desks, [:branch_id, :name])
   end
 end

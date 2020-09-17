@@ -44,6 +44,7 @@ defmodule Fastpass.Establishments do
   def get_establishment_staff(user), do: Repo.get_by!(EstablishmentStaff, [user_id: user.id])
 
   def get_company!(id), do: Repo.get!(Company, id)
+  def get_company_by_document_number(document_number), do: Repo.get_by(Company, document_number: document_number)
 
   @doc """
   Creates a establishment_owner.
@@ -121,7 +122,7 @@ defmodule Fastpass.Establishments do
     IO.inspect owner
     %Company{}
     |> Company.changeset(attrs)
-    |> Ecto.Changeset.put_assoc(:owners, [owner])
+    |> Ecto.Changeset.put_assoc(:owners, owner)
     |> Repo.insert
   end
 
